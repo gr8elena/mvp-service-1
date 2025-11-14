@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  tenant1:
+    image: postgres:16-alpine
+    container_name: tenant1_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tenant1_db
+      POSTGRES_USER: tenant1_user
+      POSTGRES_PASSWORD: tenant1_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - tenant1_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenant1_user -d tenant1_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  tenant2:
+    image: postgres:16-alpine
+    container_name: tenant2_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tenant2_db
+      POSTGRES_USER: tenant2_user
+      POSTGRES_PASSWORD: tenant2_pass
+    ports:
+      - "5433:5432"
+    volumes:
+      - tenant2_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tenant2_user -d tenant2_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tenant1_data:
+  tenant2_data:
