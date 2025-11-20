@@ -14,4 +14,8 @@ public class TenantContext {
     public static void clear() {
         CONTEXT.remove();
     }
+
+    public static String getCurrentRealm() {
+        return getCurrentTenant() + "-realm";
+    }
 }
