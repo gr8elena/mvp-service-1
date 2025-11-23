@@ -36,6 +36,8 @@ public class UserServiceImpl implements UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         userRepository.delete(user);
+        String currentRealm = TenantContext.getCurrentRealm();
+        keycloakUserService.deleteUserInKeycloak(currentRealm, user.getEmail());
     }
 
     @Override
@@ -44,7 +46,10 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         existingUser.setName(user.getName());
         existingUser.setEmail(user.getEmail());
-        return userRepository.save(existingUser);
+        User updatedUser = userRepository.save(existingUser);
+        String currentRealm = TenantContext.getCurrentRealm();
+        keycloakUserService.updateUserInKeycloak(currentRealm, existingUser);
+        return updatedUser;
     }
 
     @Override

@@ -2,11 +2,15 @@ package com.example.mvp_service_1.services.impl;
 
 import com.example.mvp_service_1.config.KeycloakAdminProperties;
 import com.example.mvp_service_1.config.RealmConfig;
+import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.keycloak.OAuth2Constants;
 import org.keycloak.admin.client.Keycloak;
 import org.keycloak.admin.client.KeycloakBuilder;
 import org.keycloak.admin.client.resource.UsersResource;
 import org.springframework.stereotype.Service;
+
+import javax.ws.rs.client.ClientBuilder;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class KeycloakAdminService {
@@ -33,6 +37,10 @@ public class KeycloakAdminService {
                 .username(config.getUsername())
                 .password(config.getPassword())
                 .grantType(OAuth2Constants.CLIENT_CREDENTIALS)
+                .resteasyClient(((ResteasyClientBuilder) ClientBuilder.newBuilder())
+                        .connectionPoolSize(3)
+                        .connectionTTL(10, TimeUnit.SECONDS)
+                        .build())
                 .build();
     }
 
