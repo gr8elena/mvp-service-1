@@ -2,10 +2,14 @@ package com.example.mvp_service_1.services.impl;
 
 import com.example.mvp_service_1.model.User;
 import com.example.mvp_service_1.services.impl.KeycloakAdminService;
+import org.keycloak.admin.client.resource.UsersResource;
+import org.keycloak.representations.idm.RoleRepresentation;
 import org.keycloak.representations.idm.UserRepresentation;
 import org.springframework.stereotype.Service;
 
 import javax.ws.rs.core.Response;
+import java.util.Collections;
+import java.util.List;
 
 @Service
 
@@ -87,4 +91,63 @@ public class KeycloakUserService {
         throw new RuntimeException("User not found in Keycloak: " + user.getEmail());
     }
 
+    public void assignRealmRole(String realm, String keycloakUserId, String roleName) {
+
+        var keycloak = adminClient.getClientForRealm(realm);
+
+        var roleRep = keycloak.realm(realm)
+                .roles()
+                .get(roleName)
+                .toRepresentation();
+
+        keycloak.realm(realm)
+                .users()
+                .get(keycloakUserId)
+                .roles()
+                .realmLevel()
+                .add(Collections.singletonList(roleRep));
+    }
+
+    public String getKeycloakId(String realm, User user) {
+        return adminClient.getUsersResource(realm)
+                .search(user.getEmail())
+                .get(0)
+                .getId();
+    }
+
+    public List<String> getUserRoles(User user, String realm) {
+        UsersResource users = adminClient.getUsersResource(realm);
+        String keycloakId =  getKeycloakId(realm, user);
+
+        return users.get(keycloakId)
+                .roles()
+                .realmLevel()
+                .listEffective()
+                .stream()
+                .map(RoleRepresentation::getName)
+                .toList();
+    }
+
+    public void removeRealmRole(String username, String roleName,  String realm) {
+        var usersResource = adminClient.getUsersResource(realm);
+        var users = usersResource.search(username);
+
+        for (var user : users) {
+            if (user.getUsername().equals(username)) {
+                var roleRep = adminClient.getClientForRealm(realm)
+                        .realm(realm)
+                        .roles()
+                        .get(roleName)
+                        .toRepresentation();
+
+                usersResource.get(user.getId())
+                        .roles()
+                        .realmLevel()
+                        .remove(Collections.singletonList(roleRep));
+                return;
+            }
+        }
+
+        throw new RuntimeException("User not found in Keycloak: " + username);
+    }
 }

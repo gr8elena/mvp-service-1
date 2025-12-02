@@ -8,6 +8,8 @@ import com.example.mvp_service_1.services.impl.UserDetailsService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
@@ -20,18 +22,17 @@ public class UserController {
         this.userDetailsService = userDetailsService;
     }
 
+    @PreAuthorize("hasRole('admin')")
     @PostMapping
-    public User create(@RequestBody User user) {
+    public User create(@RequestBody UserFullDetailsResponse user) {
         return userService.createUser(user);
     }
 
-    @PreAuthorize("hasAnyRole('admin','tenant-leader','standard-user')")
     @GetMapping("/{id}")
     public User get(@PathVariable Long id) {
         return userService.getUserById(id);
     }
 
-    @PreAuthorize("hasRole('admin')")
     @GetMapping
     public Iterable<User> all() {
         return userService.getAll();
@@ -43,13 +44,12 @@ public class UserController {
         userService.deleteUser(id);
     }
 
-    @PreAuthorize("hasRole('admin')")
+    @PreAuthorize("hasAnyRole('admin','manager')")
     @PutMapping("/{id}")
     public User update(@PathVariable Long id, @RequestBody User user) {
         return userService.updateUser(id, user);
     }
 
-    @PreAuthorize("hasRole('admin')")
     @GetMapping("/{id}/details")
     public UserFullDetailsResponse userProfile(@PathVariable Long id) {
         return userDetailsService.getFullDetails(id,TenantContext.getCurrentTenant());
@@ -58,5 +58,22 @@ public class UserController {
     @GetMapping("/active-tenant")
     public String activeTenant() {
         return TenantContext.getCurrentTenant();
+    }
+
+    @GetMapping("/{id}/roles")
+    public List<String> getUserRoles(@PathVariable Long id) {
+        return userService.getUserRoles(id);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @PostMapping("/{userId}/roles/{roleName}")
+    public void assignRole(@PathVariable Long userId, @PathVariable String roleName) {
+        userService.assignRole(userId, roleName);
+    }
+
+    @PreAuthorize("hasRole('admin')")
+    @DeleteMapping("/{userId}/roles/{roleName}")
+    public void removeRole(@PathVariable Long userId, @PathVariable String roleName) {
+        userService.removeRole(userId, roleName);
     }
 }

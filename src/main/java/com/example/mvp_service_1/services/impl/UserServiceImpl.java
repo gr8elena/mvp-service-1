@@ -1,20 +1,27 @@
 package com.example.mvp_service_1.services.impl;
 
+import com.example.mvp_service_1.clients.UserProfileClient;
 import com.example.mvp_service_1.config.multitenant.TenantContext;
 import com.example.mvp_service_1.model.User;
+import com.example.mvp_service_1.model.dtos.UserFullDetailsResponse;
+import com.example.mvp_service_1.model.dtos.UserProfileCreateRequest;
 import com.example.mvp_service_1.repository.UserRepository;
 import com.example.mvp_service_1.services.UserService;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
     private final KeycloakUserService keycloakUserService;
+    private final UserProfileClient userProfileClient;
 
-    public UserServiceImpl(UserRepository userRepository, KeycloakUserService keycloakUserService) {
+    public UserServiceImpl(UserRepository userRepository, KeycloakUserService keycloakUserService, UserProfileClient userProfileClient) {
         this.userRepository = userRepository;
         this.keycloakUserService = keycloakUserService;
+        this.userProfileClient = userProfileClient;
     }
 
     @Override
@@ -24,12 +31,28 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User createUser(User user) {
-        User userSaved = userRepository.save(user);
+    public User createUser(UserFullDetailsResponse userFullDetails) {
+        User user = User.builder()
+                .name(userFullDetails.getName())
+                .email(userFullDetails.getEmail())
+                .build();
+
+        User saved = userRepository.save(user);
+
         String currentRealm = TenantContext.getCurrentRealm();
-        keycloakUserService.createUserInKeycloak(currentRealm, userSaved);
-        return userSaved;
+        keycloakUserService.createUserInKeycloak(currentRealm, saved);
+
+        UserProfileCreateRequest req = new UserProfileCreateRequest(
+                saved.getId(),
+                userFullDetails.getEducation()
+        );
+
+        String tenant = TenantContext.getCurrentTenant();
+        userProfileClient.createUserProfile(req, tenant);
+
+        return saved;
     }
+
 
     @Override
     public void deleteUser(Long userId) {
@@ -38,6 +61,8 @@ public class UserServiceImpl implements UserService {
         userRepository.delete(user);
         String currentRealm = TenantContext.getCurrentRealm();
         keycloakUserService.deleteUserInKeycloak(currentRealm, user.getEmail());
+        String tenant = TenantContext.getCurrentTenant();
+        userProfileClient.deleteUserProfile(userId, tenant);
     }
 
     @Override
@@ -52,8 +77,34 @@ public class UserServiceImpl implements UserService {
         return updatedUser;
     }
 
+    public void assignRole(Long userId, String roleName) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String realm = TenantContext.getCurrentRealm();
+        String keycloakUserId = keycloakUserService.getKeycloakId(realm, user);
+
+        keycloakUserService.assignRealmRole(realm, keycloakUserId, roleName);
+    }
+
+    @Override
+    public void removeRole(Long userId, String roleName) {
+        String realm = TenantContext.getCurrentRealm();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        keycloakUserService.removeRealmRole(user.getEmail(), roleName, realm);
+    }
+
     @Override
     public Iterable<User> getAll() {
         return userRepository.findAll();
+    }
+
+    @Override
+    public List<String> getUserRoles(Long userId) {
+        String realm = TenantContext.getCurrentRealm();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return keycloakUserService.getUserRoles(user, realm);
     }
 }
